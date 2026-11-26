@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#101820" />
+    <title>Zueira FPS</title>
+  </head>
+  <body>
+    <canvas id="game" class="game-canvas" aria-label="Cena da partida"></canvas>
+    <main class="hud" aria-live="polite">
+      <div id="flash-overlay" class="flash-overlay" aria-hidden="true"></div>
+      <div class="status">
+        <span id="connection">Conectando...</span>
+        <span id="players">0 jogadores</span>
+        <span id="round-score">SALA —</span>
+      </div>
+      <div id="crosshair" class="crosshair" aria-label="Mira">
+        <span id="hitmarker" class="hitmarker" aria-hidden="true">×</span>
+      </div>
+      <aside id="bomb-alert" class="bomb-alert hidden" aria-live="polite">
+        <strong id="bomb-title"></strong>
+        <span id="bomb-detail"></span>
+        <progress id="bomb-progress" max="3000" value="0"></progress>
+      </aside>
+      <span id="fps-counter" class="fps-counter hidden" aria-live="off"></span>
+      <div class="health">
+        <span>VIDA</span>
+        <strong id="health">100</strong>
+      </div>
+      <div class="abilities" aria-label="Habilidades">
+        <button type="button" class="ability" data-ability="dash" data-touch-control="ability-c"><kbd>C</kbd><span>DASH</span><small class="cooldown"></small></button>
+        <button type="button" class="ability" data-ability="whip" data-touch-control="ability-q"><kbd>Q</kbd><span>CHICOTE</span><small class="cooldown"></small></button>
+        <button type="button" class="ability" data-ability="shield" data-touch-control="ability-e"><kbd>E</kbd><span>ESCUDO</span><small class="cooldown"></small></button>
+        <button type="button" class="ability ultimate-ability" data-ability="fury" data-touch-control="ability-x"><kbd>X</kbd><span>FÚRIA</span><small class="cooldown"></small></button>
+      </div>
+      <div class="ultimate-meter">
+        <div><span id="ultimate-name">MODO FÚRIA</span><strong id="ultimate">0/7</strong></div>
+        <div class="ultimate-track"><i id="ultimate-fill"></i></div>
+      </div>
+      <div id="orientation-warning" class="orientation-warning hidden" role="status">
+        <strong>Gire o dispositivo</strong>
+        <span>Para jogar, use a tela na horizontal.</span>
+      </div>
+      <div id="touch-controls" class="touch-controls" aria-label="Controles touch">
+        <div class="touch-stick" data-touch-control="move" aria-label="Analógico de movimento">
+          <span class="stick-ring"></span>
+          <span class="stick-knob"></span>
+        </div>
+        <div class="touch-actions">
+          <button type="button" class="touch-button touch-jump" data-touch-control="jump">PULAR</button>
+          <button type="button" class="touch-button touch-crouch" data-touch-control="crouch" aria-pressed="false">AGACHAR</button>
+          <button type="button" class="touch-button touch-bomb" data-touch-control="bomb">BOMBA <kbd>F</kbd></button>
+          <button type="button" class="touch-button touch-fire" data-touch-control="fire">ATIRAR</button>
+        </div>
+      </div>
+    </main>
+
+    <section id="main-menu" class="screen">
+      <div class="panel menu-panel">
+        <p class="eyebrow">MULTIPLAYER FPS</p>
+        <h1>Zueira <span>FPS</span></h1>
+        <p class="intro">Uma cidade. Duas equipes. Entre na partida.</p>
+        <label for="nickname">NICKNAME</label>
+        <input id="nickname" maxlength="20" autocomplete="nickname" placeholder="Seu nome na arena" />
+        <div class="menu-actions">
+          <button id="create-room" class="primary" type="button">Criar Sala</button>
+          <button id="open-join" type="button">Entrar com Código</button>
+          <button id="open-settings" class="subtle" type="button">Configurações</button>
+        </div>
+        <form id="join-form" class="join-form hidden">
+          <label for="room-code-input">CÓDIGO DA SALA</label>
+          <div class="join-row">
+            <input id="room-code-input" maxlength="5" autocomplete="off" placeholder="EX: BOZO7" />
+            <button type="submit" class="primary">Entrar</button>
+          </div>
+          <button id="cancel-join" class="text-button" type="button">Voltar</button>
+        </form>
+        <p id="menu-error" class="notice" role="status"></p>
+        <button id="open-feedback" class="feedback-link" type="button">Feedback / Reportar Bug</button>
+      </div>
+    </section>
+
+    <section id="lobby-screen" class="screen hidden">
+      <div class="panel lobby-panel">
+        <p class="eyebrow">AGUARDANDO JOGADORES</p>
+        <h2>Lobby</h2>
+        <div class="room-code"><span>CÓDIGO DA SALA</span><strong id="room-code">-----</strong><button id="copy-code" type="button">Copiar</button></div>
+        <p id="lobby-count" class="lobby-total">0 jogadores</p>
+        <div class="team-columns">
+          <section class="team-card attackers-card" aria-labelledby="attackers-heading">
+            <header><h3 id="attackers-heading">Atacantes <span id="attackers-count">0</span></h3><button data-team="attackers" type="button">Escolher time</button></header>
+            <ul id="attackers-players" class="lobby-players"></ul>
+          </section>
+          <section class="team-card defenders-card" aria-labelledby="defenders-heading">
+            <header><h3 id="defenders-heading">Defensores <span id="defenders-count">0</span></h3><button data-team="defenders" type="button">Escolher time</button></header>
+            <ul id="defenders-players" class="lobby-players"></ul>
+          </section>
+        </div>
+        <div class="lobby-columns">
+          <div class="lobby-options">
+            <label for="agent-select">SEU AGENTE</label>
+            <select id="agent-select">
+              <option value="kaneca">Kaneca — Duelista</option>
+              <option value="satoro">Satoro Bozo — Controlador</option>
+              <option value="barutcho">Barutcho — Duelista / Engenheiro de Som</option>
+              <option value="zorbao">Zorbão — Sentinela / Guardião Criogênico</option>
+            </select>
+            <label for="map-select">MAPA <small>(apenas anfitrião)</small></label>
+            <select id="map-select">
+              <option value="shibuya-night">Shibuya Night</option>
+              <option value="templo-sakura">Templo Sakura</option>
+            </select>
+            <p id="owner-label" class="owner-label"></p>
+          </div>
+        </div>
+        <p id="lobby-error" class="notice" role="status"></p>
+        <button id="start-match" class="primary start-match" type="button" disabled>Iniciar Partida</button>
+        <button id="leave-room" class="text-button" type="button">Sair da sala</button>
+      </div>
+    </section>
+
+    <section id="match-screen" class="screen hidden">
+      <div class="panel match-panel">
+        <p class="eyebrow">PARTIDA AO VIVO</p>
+        <h2 id="match-title">Round 1</h2>
+        <p id="round-message">A partida começou. Prepare-se.</p>
+        <button id="play-button" class="primary" type="button">Entrar na partida</button>
+        <p id="match-instructions" class="instructions">WASD mover · Space pular · Ctrl/Shift abaixar · Mouse mirar · Clique atirar · C/Q/E/X habilidades · ESC liberar o mouse</p>
+      </div>
+    </section>
+
+    <dialog id="settings-dialog" class="modal">
+      <form method="dialog" class="panel modal-panel">
+        <p class="eyebrow">PREFERÊNCIAS</p>
+        <h2>Configurações</h2>
+        <label for="sensitivity">SENSIBILIDADE DO MOUSE <output id="sensitivity-value">0.0022</output></label>
+        <input id="sensitivity" type="range" min="0.0005" max="0.008" step="0.0001" />
+        <label for="neon-quality">QUALIDADE / BRILHO NEON</label>
+        <select id="neon-quality">
+          <option value="low">Leve</option>
+          <option value="medium">Equilibrado</option>
+          <option value="high">Alto</option>
+        </select>
+        <label for="fov">CAMPO DE VISÃO (FOV) <output id="fov-value">75°</output></label>
+        <input id="fov" type="range" min="60" max="110" step="1" />
+        <label for="crosshair-color">COR DA MIRA</label>
+        <select id="crosshair-color">
+          <option value="green">Verde</option>
+          <option value="cyan">Ciano</option>
+          <option value="red">Vermelho</option>
+          <option value="white">Branco</option>
+        </select>
+        <label for="crosshair-size">TAMANHO DA MIRA <output id="crosshair-size-value">14px</output></label>
+        <input id="crosshair-size" type="range" min="6" max="30" step="1" />
+        <label class="check-setting" for="invert-y"><input id="invert-y" type="checkbox" /> Inverter eixo Y</label>
+        <label class="check-setting" for="show-fps-setting"><input id="show-fps-setting" type="checkbox" /> Mostrar FPS na tela</label>
+        <label class="check-setting" for="mobile-controls-setting"><input id="mobile-controls-setting" type="checkbox" /> Modo Mobile (HUD Touch)</label>
+        <button id="save-settings" class="primary" value="close">Salvar</button>
+      </form>
+    </dialog>
+
+    <dialog id="feedback-dialog" class="modal">
+      <form id="feedback-form" class="panel modal-panel">
+        <p class="eyebrow">AJUDE A MELHORAR</p>
+        <h2>Feedback</h2>
+        <label for="feedback-message">SUGESTÃO OU BUG</label>
+        <textarea id="feedback-message" maxlength="1000" rows="5" required placeholder="Conte o que aconteceu..."></textarea>
+        <p id="feedback-status" class="notice" role="status"></p>
+        <div class="join-row">
+          <button id="close-feedback" type="button">Cancelar</button>
+          <button class="primary" type="submit">Enviar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <section id="resume-screen" class="resume-screen hidden">
+      <button id="resume-button" type="button" class="primary">Voltar à partida</button>
+    </section>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
